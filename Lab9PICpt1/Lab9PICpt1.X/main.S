@@ -1,7 +1,7 @@
 // Ashton Tolman
 // RCET3373
-// Lab8PICpt1
-// https://github.com/Ashton-Tolman/Semester-5-Lab-8.git
+// Lab9PICpt1
+// https://github.com/Ashton-Tolman/Semester-5-Lab-9.git
 // linker code:-Wl,-presetVect=0000h,-pisrVect=0004h,-pcode=0008h
 
 ; PIC16F883 Configuration Bit Settings
