@@ -76,8 +76,28 @@ Main:
     CALL ReadEEPROM		; Read Data in EEPROM address 0x00
     MOVWF DisplayRegister	; Data read is in W, send to display
     MOVWF PORTC
+    
+    StartUpSequence:
+    MOVF DisplayRegister,W
+    XORWF 0x41			; Test current display for A
+    BTFSS STATUS,2		; Test the Zero bit to see if A matched
+    goto TestB
+    goto CheckButtons
+    
+    TestB:
+    MOVF DisplayRegister,W
+    XORWF 0x42
+    BTFSS STATUS,2		; Test the Zero bit to see if B matched
+    goto StartupDisplay
+    
+    CheckButtons:
     CALL CheckWritePressed	; See if the write button is pressed
     goto Main
+    
+    StartupDisplay:
+    MOVLW 0x41
+    MOVWF DisplayRegister
+    goto CheckButtons
     
 ;ReadEEPROM reads data in address 0x00 and puts it in W
 ;Diagnostic port is toggled to show this on RA1
@@ -114,8 +134,17 @@ CheckWritePressed:
     CALL Delay10ms		; Test for bounces
     BTFSC PORTB,0	    
     goto WriteHeld		; Bounce detected, stay here
-    MOVLW   0x03
-    XORWF   DisplayRegister,F	; Switch the pick: 'A' becomes 'B', 'B' becomes 'A'
+    
+    SelectPressed:
+    BTFSC PORTB,0		; Test if Select button has been releasted
+    CALL Delay10ms		;
+    BTFSS PORTB,0		; Check for bouncing
+    goto SelectPressed		;
+    
+    MOVLW 0x03
+    XORWF DisplayRegister,F	; Switch the pick: 'A' becomes 'B', 'B' becomes 'A'
+    MOVF DisplayRegister,W	; 
+    MOVWF PORTC			; Display new letter on PortC
     goto WriteHeld
     
     
