@@ -64,11 +64,9 @@ Setup:
     BCF TRISA,2		    ; RA2 is an output (write marker)	 
 		    
     BCF 0x03, 06	    ;
-    BSF 0x03, 05	    ; Set bank 1 active 
+    BCF 0x03, 05	    ; Set bank 0 active 
     CLRF PORTA		    ; Both markers start LOW
     CLRF PORTC		    ; Display starts blank
-    MOVLW 0x41
-    MOVWF DisplayRegister   ; The pick starts out as 'A'
     goto Main
     
 
@@ -79,14 +77,14 @@ Main:
     
     StartUpSequence:
     MOVF DisplayRegister,W
-    XORWF 0x41			; Test current display for A
+    XORLW 0x41			; Test current display for A
     BTFSS STATUS,2		; Test the Zero bit to see if A matched
     goto TestB
     goto CheckButtons
     
     TestB:
     MOVF DisplayRegister,W
-    XORWF 0x42
+    XORLW 0x42
     BTFSS STATUS,2		; Test the Zero bit to see if B matched
     goto StartupDisplay
     
@@ -149,6 +147,7 @@ CheckWritePressed:
     
     
     EEPROMWrite:
+    BANKSEL PORTA
     BSF PORTA,2			;write marker ON
     BANKSEL EEADR
     CLRF EEADR			;the address to write is 0
