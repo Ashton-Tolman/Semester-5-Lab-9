@@ -26,9 +26,6 @@
 
 // config statements should precede project file includes.
 #include <xc.inc>
-    EEPROMAddress EQU 0x70
-    EEPROMData EQU 0x71
-
     pin_digit1     EQU 0x20 ; First entered PIN digit
     pin_digit2     EQU 0x21 ; Second entered PIN digit
     pin_digit3     EQU 0x22 ; Third entered PIN digit
@@ -77,43 +74,46 @@ ResetVector:
 
 ; Interrupt Vector
 PSECT isrVect,class=CODE,delta=2
-
+InterruptVector:
+    goto Main
+    
 ; Main code section starts at 0008h. User code goes here.
 PSECT code,class=CODE,delta=2
 
-Setup:
-    ; Bank 0: Outputs OFF before the pins become outputs
-    BANKSEL PORTA
-    CLRF PORTA      ; Solenoid and buzzer OFF
-    CLRF PORTB      ; Keep keypad rows LOW
+Setup:    
+    ; add device setup here
+    BCF 0x03, 06	;
+    BCF 0x03, 05	; Set bank 0 active 
+    CLRF PORTA		; Solenoid and buzzer OFF
+    CLRF PORTB		; Keep keypad rows LOW
     MOVLW 0x80
-    MOVWF PORTC     ; Display Write HIGH
+    MOVWF PORTC		; Display Write HIGH
  
-    ; Bank 3
-    BANKSEL ANSEL
-    CLRF ANSEL      ; Disable analog inputs
+    BSF 0x03, 06	;
+    BSF 0x03, 05	; Set bank 3 active
+    CLRF ANSEL		; Disable analog inputs
     CLRF ANSELH
-    BCF EECON1,7    ; Select data EEPROM
-    BCF EECON1,2    ; Disable EEPROM writing
+    BCF EECON1,7	; Select data EEPROM
+    BCF EECON1,2	; Disable EEPROM writing
  
-    ; Bank 1
-    BANKSEL TRISA
-    BCF TRISA,0     ; RA0 simulated solenoid output
-    BCF TRISA,1     ; RA1 buzzer output
-    BCF TRISA,2     ; RA2 unused output
+    BCF 0x03, 06	;
+    BSF 0x03, 05	; Set bank 1 active 
+    BCF TRISA,0		; RA0 simulated solenoid output
+    BCF TRISA,1		; RA1 buzzer output
+    BCF TRISA,2		; RA2 unused output
     MOVLW 0xFF
-    MOVWF TRISB     ; RB0-RB7 start as inputs
-    CLRF TRISC      ; Display outputs
+    MOVWF TRISB		; RB0-RB7 start as inputs
+    CLRF TRISC		; Display outputs
     MOVLW 0xFF
-    MOVWF WPUB      ; Weak pull-ups on keypad columns
+    MOVWF WPUB		; Weak pull-ups on keypad columns
     MOVLW 0x07
-    MOVWF OPTION_REG ; RBPU=0 (pull-ups on), internal clock, 1:256 prescaler
+    MOVWF OPTION_REG	; RBPU=0 (pull-ups on), internal clock, 1:256 prescaler
  
-    ; Bank 0
-    BANKSEL TMR0
-    CLRF TMR0        ; Clear Timer0 counter
-    BCF INTCON,2     ; Clear Timer0 overflow flag
-    BCF INTCON,7     ; Leave global interrupts disabled
+    BCF 0x03, 06	;
+    BCF 0x03, 05	; Set bank 0 active 
+    CLRF TMR0		; Clear Timer0 counter
+    BCF INTCON,2	; Clear Timer0 overflow flag
+    BCF INTCON,7	; Leave global interrupts disabled
  
     ; Clear all application registers
     CLRF pin_digit1
@@ -135,11 +135,10 @@ Setup:
     CLRF ee_status
     MOVLW NO_KEY
     MOVWF key_code
-    BCF STATUS,7     ; IRP = 0: indirect addressing uses bank 0/1
+    BCF STATUS,7	; IRP = 0: indirect addressing uses bank 0/1
  
-    ; Begin in the locked state and initialize pin
-    CALL InitializePIN
-    MOVLW 0x4C       ; 'L' = locked
+    ; Begin in the locked state 
+    MOVLW 0x4C		; 'L' = locked
     CALL DisplayChar   
     goto Main
  
@@ -165,10 +164,10 @@ Main:
     MOVF candidate_key,W
     XORWF key_code,W
     BTFSS STATUS,2
-    goto Main        ; Not a stable press
-    BSF key_held,0   ; Count this press only once
-    CALL BeepKey     ; All 16 keys produce a beep
-    CALL HandleKey   ; Process the new key
+    goto Main			    ; Not a stable press
+    BSF key_held,0		    ; Count this press only once
+    CALL BeepKey		    ; All 16 keys produce a beep
+    CALL HandleKey		    ; Process the new key
     goto Main
    
 KeyReleased:
@@ -188,76 +187,76 @@ KeyReleased:
 ScanKey:
     ; Determine which key is pressed on the 4x4 keypad
     BANKSEL keyLow
-    CLRF keyLow      ; Clearing lower key status bits
-    CLRF keyHigh     ; Clearing higher key status bits
+    CLRF keyLow			    ; Clearing lower key status bits
+    CLRF keyHigh		    ; Clearing higher key status bits
  
 ; Checks Row 4 of the 4x4 matrix
     BANKSEL TRISB
-    MOVLW 0xF7       ; RB3 output LOW, rest of PORTB inputs
+    MOVLW 0xF7			    ; RB3 output LOW, rest of PORTB inputs
     MOVWF TRISB
     BANKSEL PORTB
-    NOP              ; Let the row settle
+    NOP				    ; Let the row settle
     NOP
  
 ; Checks each column 1-4
-    BTFSS PORTB,4    ; Column 1 for '*' key being pressed
+    BTFSS PORTB,4		    ; Column 1 for '*' key being pressed
     BSF keyHigh,4
-    BTFSS PORTB,5    ; Column 2 for '0' key being pressed
+    BTFSS PORTB,5		    ; Column 2 for '0' key being pressed
     BSF keyHigh,5
-    BTFSS PORTB,6    ; Column 3 for '#' key being pressed
+    BTFSS PORTB,6		    ; Column 3 for '#' key being pressed
     BSF keyHigh,6
-    BTFSS PORTB,7    ; Column 4 for 'D' key being pressed
+    BTFSS PORTB,7		    ; Column 4 for 'D' key being pressed
     BSF keyHigh,7
  
 ; Checks Row 3 of the 4x4 matrix
     BANKSEL TRISB
-    MOVLW 0xFB       ; RB2 output LOW, rest of PORTB inputs
+    MOVLW 0xFB			    ; RB2 output LOW, rest of PORTB inputs
     MOVWF TRISB
     BANKSEL PORTB
     NOP
     NOP
  
-    BTFSS PORTB,4    ; Column 1 for '7' key being pressed
+    BTFSS PORTB,4		    ; Column 1 for '7' key being pressed
     BSF keyHigh,0
-    BTFSS PORTB,5    ; Column 2 for '8' key being pressed
+    BTFSS PORTB,5		    ; Column 2 for '8' key being pressed
     BSF keyHigh,1
-    BTFSS PORTB,6    ; Column 3 for '9' key being pressed
+    BTFSS PORTB,6		    ; Column 3 for '9' key being pressed
     BSF keyHigh,2
-    BTFSS PORTB,7    ; Column 4 for 'C' key being pressed
+    BTFSS PORTB,7		    ; Column 4 for 'C' key being pressed
     BSF keyHigh,3
  
 ; Checks Row 2 of the 4x4 matrix
     BANKSEL TRISB
-    MOVLW 0xFD       ; RB1 output LOW, rest of PORTB inputs
+    MOVLW 0xFD			    ; RB1 output LOW, rest of PORTB inputs
     MOVWF TRISB
     BANKSEL PORTB
     NOP
     NOP
  
-    BTFSS PORTB,4    ; Column 1 for '4' key being pressed
+    BTFSS PORTB,4		    ; Column 1 for '4' key being pressed
     BSF keyLow,4
-    BTFSS PORTB,5    ; Column 2 for '5' key being pressed
+    BTFSS PORTB,5		    ; Column 2 for '5' key being pressed
     BSF keyLow,5
-    BTFSS PORTB,6    ; Column 3 for '6' key being pressed
+    BTFSS PORTB,6		    ; Column 3 for '6' key being pressed
     BSF keyLow,6
-    BTFSS PORTB,7    ; Column 4 for 'B' key being pressed
+    BTFSS PORTB,7		    ; Column 4 for 'B' key being pressed
     BSF keyLow,7
  
 ; Checks Row 1 of the 4x4 matrix
     BANKSEL TRISB
-    MOVLW 0xFE       ; RB0 output LOW, rest of PORTB inputs
+    MOVLW 0xFE			    ; RB0 output LOW, rest of PORTB inputs
     MOVWF TRISB
     BANKSEL PORTB
     NOP
     NOP
  
-    BTFSS PORTB,4    ; Column 1 for '1' key being pressed
+    BTFSS PORTB,4		    ; Column 1 for '1' key being pressed
     BSF keyLow,0
-    BTFSS PORTB,5    ; Column 2 for '2' key being pressed
+    BTFSS PORTB,5		    ; Column 2 for '2' key being pressed
     BSF keyLow,1
-    BTFSS PORTB,6    ; Column 3 for '3' key being pressed
+    BTFSS PORTB,6		    ; Column 3 for '3' key being pressed
     BSF keyLow,2
-    BTFSS PORTB,7    ; Column 4 for 'A' key being pressed
+    BTFSS PORTB,7		    ; Column 4 for 'A' key being pressed
     BSF keyLow,3
  
 ; Release all rows (all of PORTB back to inputs)
@@ -269,107 +268,107 @@ ScanKey:
 ; Pick one key if several are pressed (D = highest priority)
 ; Store the actual key value instead of using KeyTable
 Test_D:
-    BTFSS keyHigh,7  ; Test if D is pressed
+    BTFSS keyHigh,7		    ; Test if D is pressed
     goto Test_Hash
     MOVLW 0x0F
     goto SaveKeyIndex
 
 Test_Hash:
-    BTFSS keyHigh,6  ; Test if # is pressed
+    BTFSS keyHigh,6		    ; Test if # is pressed
     goto Test_0
     MOVLW HASH_KEY
     goto SaveKeyIndex
 
 Test_0:
-    BTFSS keyHigh,5  ; Test if 0 is pressed
+    BTFSS keyHigh,5		    ; Test if 0 is pressed
     goto Test_Star
     MOVLW 0x00
     goto SaveKeyIndex
 
 Test_Star:
-    BTFSS keyHigh,4  ; Test if * is pressed
+    BTFSS keyHigh,4		    ; Test if * is pressed
     goto Test_C
     MOVLW STAR_KEY
     goto SaveKeyIndex
 
 Test_C:
-    BTFSS keyHigh,3  ; Test if C is pressed
+    BTFSS keyHigh,3		    ; Test if C is pressed
     goto Test_9
     MOVLW 0x0E
     goto SaveKeyIndex
 
 Test_9:
-    BTFSS keyHigh,2  ; Test if 9 is pressed
+    BTFSS keyHigh,2		    ; Test if 9 is pressed
     goto Test_8
     MOVLW 0x09
     goto SaveKeyIndex
 
 Test_8:
-    BTFSS keyHigh,1  ; Test if 8 is pressed
+    BTFSS keyHigh,1		    ; Test if 8 is pressed
     goto Test_7
     MOVLW 0x08
     goto SaveKeyIndex
 
 Test_7:
-    BTFSS keyHigh,0  ; Test if 7 is pressed
+    BTFSS keyHigh,0		    ; Test if 7 is pressed
     goto Test_B
     MOVLW 0x07
     goto SaveKeyIndex
 
 Test_B:
-    BTFSS keyLow,7   ; Test if B is pressed
+    BTFSS keyLow,7		    ; Test if B is pressed
     goto Test_6
     MOVLW 0x0D
     goto SaveKeyIndex
 
 Test_6:
-    BTFSS keyLow,6   ; Test if 6 is pressed
+    BTFSS keyLow,6		    ; Test if 6 is pressed
     goto Test_5
     MOVLW 0x06
     goto SaveKeyIndex
 
 Test_5:
-    BTFSS keyLow,5   ; Test if 5 is pressed
+    BTFSS keyLow,5		    ; Test if 5 is pressed
     goto Test_4
     MOVLW 0x05
     goto SaveKeyIndex
 
 Test_4:
-    BTFSS keyLow,4   ; Test if 4 is pressed
+    BTFSS keyLow,4		    ; Test if 4 is pressed
     goto Test_A
     MOVLW 0x04
     goto SaveKeyIndex
 
 Test_A:
-    BTFSS keyLow,3   ; Test if A is pressed
+    BTFSS keyLow,3		    ; Test if A is pressed
     goto Test_3
     MOVLW 0x0C
     goto SaveKeyIndex
 
 Test_3:
-    BTFSS keyLow,2   ; Test if 3 is pressed
+    BTFSS keyLow,2		    ; Test if 3 is pressed
     goto Test_2
     MOVLW 0x03
     goto SaveKeyIndex
 
 Test_2:
-    BTFSS keyLow,1   ; Test if 2 is pressed
+    BTFSS keyLow,1		    ; Test if 2 is pressed
     goto Test_1
     MOVLW 0x02
     goto SaveKeyIndex
 
 Test_1:
-    BTFSS keyLow,0   ; Test if 1 is pressed
+    BTFSS keyLow,0		    ; Test if 1 is pressed
     goto NoKey
     MOVLW 0x01
     goto SaveKeyIndex
 
 NoKey:
-    MOVLW NO_KEY     ; No key active
+    MOVLW NO_KEY		    ; No key active
 
 SaveKeyIndex:
     BANKSEL key_code
-    MOVWF key_code   ; Save the actual key value
+    MOVWF key_code		    ; Save the actual key value
     RETURN
  
 ; Handle one debounced keypad press
@@ -386,7 +385,7 @@ HandleKey:
  
     ; A-D do not change PIN entry
     MOVLW 0x0A
-    SUBWF key_code,W    ; Carry=1 when key >= 10
+    SUBWF key_code,W		    ; Carry=1 when key >= 10
     BTFSC STATUS,0
     RETURN
  
@@ -410,19 +409,19 @@ HandleKey:
  
     ; Display how many digits have been entered (1-4)
     MOVF digit_count,W
-    ADDLW 0x30           ; ASCII '1' through '4'
+    ADDLW 0x30			    ; ASCII '1' through '4'
     CALL DisplayChar
     RETURN
  
 TooManyDigits:
     BSF entry_error,0
-    MOVLW 0x45           ; 'E' = rejected entry
+    MOVLW 0x45			    ; 'E' = rejected entry
     CALL DisplayChar
     RETURN
  
 CancelPIN:
     CALL ClearEntry
-    MOVLW 0x43           ; 'C' = canceled
+    MOVLW 0x43			    ; 'C' = canceled
     CALL DisplayChar
     RETURN
  
@@ -440,7 +439,7 @@ SubmitPIN:
  
 RejectPIN:
     CALL ClearEntry
-    MOVLW 0x45           ; 'E' = wrong/incomplete PIN
+    MOVLW 0x45			    ; 'E' = wrong/incomplete PIN
     CALL DisplayChar
     RETURN
  
@@ -463,14 +462,14 @@ CompareNextDigit:
     MOVF pin_index,W
     ADDLW PIN_EE_START
     MOVWF ee_address
-    CALL EEPROMRead       ; Part 2 routine, stored digit returns in ee_data
+    CALL EEPROMRead		    ; Part 2 routine, stored digit returns in ee_data
  
-    BANKSEL pin_index     ; EEPROMRead changes banks
+    BANKSEL pin_index		    ; EEPROMRead changes banks
     MOVF pin_index,W
     ADDLW pin_digit1
     MOVWF FSR
-    MOVF INDF,W          ; Entered digit
-    XORWF ee_data,W      ; Compare with stored EEPROM digit
+    MOVF INDF,W			    ; Entered digit
+    XORWF ee_data,W		    ; Compare with stored EEPROM digit
     BTFSS STATUS,2
     goto WrongPIN
     INCF pin_index,F
@@ -480,37 +479,37 @@ CompareNextDigit:
     goto CompareNextDigit
  
     ; All four digits matched
-    MOVLW 0x55           ; 'U' = unlocked
+    MOVLW 0x55			    ; 'U' = unlocked
     CALL DisplayChar
     CALL SolenoidPulse
-    MOVLW 0x4C           ; 'L' = locked again
+    MOVLW 0x4C			    ; 'L' = locked again
     CALL DisplayChar
     RETURN
  
 WrongPIN:
-    MOVLW 0x45           ; 'E' = incorrect PIN
+    MOVLW 0x45			    ; 'E' = incorrect PIN
     CALL DisplayChar
     RETURN
  
 BeepKey:
     ; Sound the active buzzer for about 150 ms
     BANKSEL PORTA
-    BSF PORTA,1          ; Buzzer ON
+    BSF PORTA,1			    ; Buzzer ON
     MOVLW 0x0F
-    MOVWF beep_count     ; 15 x 10 ms
+    MOVWF beep_count		    ; 15 x 10 ms
  
 BeepLoop:
     CALL Delay10ms
     BANKSEL beep_count
     DECFSZ beep_count,F
     goto BeepLoop
-    BCF PORTA,1          ; Buzzer OFF
+    BCF PORTA,1			    ; Buzzer OFF
     RETURN
  
 SolenoidPulse:
     ; Turn on the simulated solenoid for about one second
     BANKSEL PORTA
-    BSF PORTA,0          ; Unlock output HIGH
+    BSF PORTA,0			    ; Unlock output HIGH
     CLRF pulse_count
     CLRF TMR0
     BCF INTCON,2
@@ -524,7 +523,7 @@ SolenoidWait:
     XORWF pulse_count,W
     BTFSS STATUS,2
     goto SolenoidWait
-    BCF PORTA,0          ; Lock output LOW
+    BCF PORTA,0			    ; Lock output LOW
     RETURN
 
 EEPROMFetch:
@@ -534,8 +533,8 @@ EEPROMFetch:
     BANKSEL EEADR
     MOVWF EEADR
     BANKSEL EECON1
-    BCF EECON1,7         ; EEPGD = 0, data EEPROM
-    BSF EECON1,0         ; RD = 1
+    BCF EECON1,7		    ; EEPGD = 0, data EEPROM
+    BSF EECON1,0		    ; RD = 1
     BANKSEL EEDATA
     MOVF EEDATA,W
     RETURN
@@ -573,7 +572,7 @@ EEPROMWrite:
     BANKSEL ee_data
     XORWF ee_data,W
     BTFSC STATUS,2
-    RETURN               ; Same value, skip the write
+    RETURN			    ; Same value, skip the write
  
     ; Copy requested data into EEPROM data register
     MOVF ee_data,W
@@ -584,13 +583,13 @@ EEPROMWrite:
     BANKSEL ee_status
     BSF ee_status,EEPROM_WRITE
     BCF ee_status,GIE_SAVED
-    BTFSC INTCON,7       ; INTCON can be read from any bank
+    BTFSC INTCON,7		    ; INTCON can be read from any bank
     BSF ee_status,GIE_SAVED
  
     ; Enable EEPROM writing
     BANKSEL EECON1
-    BCF EECON1,7         ; EEPGD = 0
-    BSF EECON1,2         ; WREN = 1
+    BCF EECON1,7		    ; EEPGD = 0
+    BSF EECON1,2		    ; WREN = 1
  
     ; Disable global interrupts for unlock
     BCF INTCON,7
@@ -604,14 +603,14 @@ WaitGIEOff:
     MOVWF EECON2
     MOVLW 0xAA
     MOVWF EECON2
-    BSF EECON1,1         ; WR = 1, start writing
+    BSF EECON1,1		    ; WR = 1, start writing
  
     ; Restore previous global interrupt state
     BANKSEL ee_status
     BTFSC ee_status,GIE_SAVED
-    BSF INTCON,7         ; Turn GIE back on only if it was on before
+    BSF INTCON,7		    ; Turn GIE back on only if it was on before
     BCF ee_status,GIE_SAVED
-    RETURN               ; Do not wait for completion
+    RETURN			    ; Do not wait for completion
  
 EEPROMVerifyWrite:
     ; Read back the byte at ee_address
@@ -619,7 +618,7 @@ EEPROMVerifyWrite:
  
     ; Compare with the expected ee_data (ee_data is not changed)
     BANKSEL ee_data
-    ; MOVLW 0xFF           ; Testing Error
+    ; MOVLW 0xFF		    ; Testing Error
     XORWF ee_data,W
     BTFSC STATUS,2
     goto VerifySuccess
@@ -637,21 +636,21 @@ VerifySuccess:
  
 VerifyFinished:
     BANKSEL EECON1
-    BCF EECON1,2         ; WREN = 0
+    BCF EECON1,2		    ; WREN = 0
     BANKSEL PIR2
-    BCF PIR2,4           ; EEIF = 0
+    BCF PIR2,4			    ; EEIF = 0
     RETURN
 
 DisplayChar:
     ; DLG7137 Display
-    ANDLW 0x7F            ; Keep the seven ASCII data bits
-    IORLW 0x80            ; Keep RC7 Write HIGH
+    ANDLW 0x7F			    ; Keep the seven ASCII data bits
+    IORLW 0x80			    ; Keep RC7 Write HIGH
     BANKSEL PORTC
-    MOVWF PORTC           ; Put character on the data pins
-    NOP                   ; Allow data to settle
-    BCF PORTC,7           ; Pulse display Write LOW
+    MOVWF PORTC			    ; Put character on the data pins
+    NOP				    ; Allow data to settle
+    BCF PORTC,7			    ; Pulse display Write LOW
     NOP
-    BSF PORTC,7           ; Finish the display write
+    BSF PORTC,7			    ; Finish the display write
     RETURN
  
 Delay10ms:
@@ -680,62 +679,5 @@ Delay50usLoop:
     MOVWF Count50us        ; 1 Tcy make count equal 15
     DECFSZ Count50us,F     ; 1 Tcy if not zero, 2 Tcy if zero
     goto $-1               ; 2 Tcy delay runs 15 times before skipping
-    RETURN
-
-    
-;This code will be deleted in final iteration
-InitializePIN:
-    CLRF EEPROMAddress
-    MOVLW 0x01
-    MOVWF EEPROMData
-    CALL EEPROMWriteINIT
-    
-    MOVLW 0x01
-    MOVWF EEPROMAddress
-    MOVLW 0x02
-    MOVWF EEPROMData
-    CALL EEPROMWriteINIT
-    
-    MOVLW 0x02
-    MOVWF EEPROMAddress
-    MOVLW 0x03 
-    MOVWF EEPROMData
-    CALL EEPROMWriteINIT
-    
-    MOVLW 0x03 
-    MOVWF EEPROMAddress
-    MOVLW 0x04
-    MOVWF EEPROMData
-    CALL EEPROMWriteINIT
-    
-    RETURN
-    
-EEPROMWriteINIT:
-    BANKSEL EEADR
-    MOVF EEPROMAddress,W
-    MOVWF EEADR			    ;the address to write
-    MOVF EEPROMData,W
-    MOVWF EEDATA		    ;the byte to write
-    BANKSEL EECON1
-    BCF EECON1,7		    ;pick data EEPROM
-    BSF EECON1,2		    ;allow writing
- 
-    GieOff:
-    BCF INTCON,7		    ;turn interrupts OFF
-    BTFSC INTCON,7		    ;make sure they are really OFF
-    goto GieOff
-
-    MOVLW 0x55			    ;the chip needs this exact code, in this exact order,
-    MOVWF EECON2		    ;with nothing in between, or it ignores the write
-    MOVLW 0xAA
-    MOVWF EECON2
-    BSF EECON1,1		    ;start the write (we do not wait)
-    
-    BANKSEL PIR2
-    BTFSS PIR2,4		    ;is EEIF still set
-    goto $-1
-    BCF PIR2,4			    ;Clear EEIF 
-    BANKSEL EECON1
-    BCF EECON1,2
     RETURN
 END
