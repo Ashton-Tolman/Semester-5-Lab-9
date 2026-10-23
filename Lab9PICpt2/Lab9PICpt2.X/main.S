@@ -43,11 +43,10 @@
   Display        EQU 0x75    ;the letter we are about to show
   Selecting      EQU 0x76    ;1 = picking a letter, 0 = normal
   TimeoutCount   EQU 0x77    ;10 ms ticks left before the pick times out
-  SelectDown        EQU 0x78    ;1 = we already counted this Select press
-  WriteDown         EQU 0x79    ;1 = we already counted this Write press
+  SelectDown     EQU 0x78    ;1 = we already counted this Select press
+  WriteDown      EQU 0x79    ;1 = we already counted this Write press
   DelayInner     EQU 0x7A    ;counts down inside the 1 ms wait
   DelayOuter     EQU 0x7B    ;counts down how many 1 ms waits are left
-
  
 ; Reset Vector at 000h. Execution starts here after reset 
 PSECT resetVect,class=CODE,delta=2
@@ -78,25 +77,26 @@ Setup:
     CLRF TRISC		    ; Set PortC output
     BSF TRISB,0		    ; RB0 is an input (Select button)
     BSF TRISB,1		    ; RB1 is an input (Write button)
-    BCF TRISA,1		    ; RA1 is an output (read marker)
-    BCF TRISA,2		    ; RA2 is an output (write marker)	 
+    BCF TRISA,0		    ; RA0 is an output (selection LED)
+    BCF TRISA,1		    ; RA1 is an output (main loop marker)
+    BCF TRISA,2		    ; RA2 is an output (error LED)	 
     MOVLW 249
-    MOVWF PR2		    ;Timer2 counts 250 steps (this makes 1 ms)
+    MOVWF PR2		    ; Timer2 counts 250 steps (this makes 1 ms)
 		    
     BCF 0x03, 06	    ;
     BCF 0x03, 05	    ; Set bank 0 active 
-    CLRF PORTA		    ;all the markers and LEDs start OFF
-    CLRF PORTC		    ;display starts blank
-    CLRF ee_status	    ;no read, no write, no error
-    CLRF CurrentAddress	    ;use EEPROM address 0x00
+    CLRF PORTA		    ; all the markers and LEDs start OFF
+    CLRF PORTC		    ; display starts blank
+    CLRF ee_status	    ; no read, no write, no error
+    CLRF CurrentAddress	    ; use EEPROM address 0x00
     MOVLW 0x41
-    MOVWF Pending	    ;the pick starts out as 'A'
+    MOVWF Pending	    ; the pick starts out as 'A'
     CLRF Selecting
     CLRF TimeoutCount
     CLRF SelectDown
     CLRF WriteDown
-    BCF PIR1,1		    ;clear the Timer2 flag
-    MOVLW 0b01001101	    ;Timer2 on, the flag is set every 10 ms
+    BCF PIR1,1		    ; clear the Timer2 flag
+    MOVLW 0b01001101	    ; Timer2 on, the flag is set every 10 ms
     MOVWF T2CON
     goto Main
     
@@ -286,7 +286,7 @@ EEPROMWrite:
     MOVWF EEDATA		    ;the byte to write
     
     
-    ;MOVLW   1			    ;TEST ONLY: remove the ; on these two lines to write
+    ;MOVLW   20			    ;TEST ONLY: remove the ; on these two lines to write
     ;ADDWF   EEDATA,F		    ;the WRONG byte, so the check fails on purpose
     
     
@@ -299,6 +299,8 @@ EEPROMWrite:
     BSF ee_status,EE_GIE_SAVED	    ;yes, remember that
 GieOff:
     BCF INTCON,7		    ;turn interrupts OFF
+    BTFSC INTCON,7		    ;make sure they are really OFF
+    goto GieOff
 
     MOVLW 0x55			    ;the chip needs this exact code, in this exact order,
     MOVWF EECON2		    ;with nothing in between, or it ignores the write
