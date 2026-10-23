@@ -140,9 +140,8 @@ Setup:
     ; Begin in the locked state and initialize pin
     CALL InitializePIN
     MOVLW 0x4C       ; 'L' = locked
-    CALL DisplayChar
-    
-GOTO Main
+    CALL DisplayChar   
+    goto Main
  
 Main:
     ; Check for a keypad press
@@ -151,11 +150,11 @@ Main:
     MOVLW NO_KEY
     XORWF key_code,W
     BTFSC STATUS,2
-    GOTO KeyReleased
+    goto KeyReleased
  
     ; Ignore a key that is still being held
     BTFSC key_held,0
-    GOTO Main
+    goto Main
  
     ; Debounce a new key press
     MOVF key_code,W
@@ -166,25 +165,25 @@ Main:
     MOVF candidate_key,W
     XORWF key_code,W
     BTFSS STATUS,2
-    GOTO Main        ; Not a stable press
+    goto Main        ; Not a stable press
     BSF key_held,0   ; Count this press only once
     CALL BeepKey     ; All 16 keys produce a beep
     CALL HandleKey   ; Process the new key
-    GOTO Main
+    goto Main
    
 KeyReleased:
     ; Wait for a stable release before accepting another press
     BTFSS key_held,0
-    GOTO Main
+    goto Main
     CALL Delay10ms
     CALL ScanKey
     BANKSEL key_code
     MOVLW NO_KEY
     XORWF key_code,W
     BTFSS STATUS,2
-    GOTO Main
+    goto Main
     BCF key_held,0
-    GOTO Main
+    goto Main
     
 ScanKey:
     ; Determine which key is pressed on the 4x4 keypad
@@ -271,99 +270,99 @@ ScanKey:
 ; Store the actual key value instead of using KeyTable
 Test_D:
     BTFSS keyHigh,7  ; Test if D is pressed
-    GOTO Test_Hash
+    goto Test_Hash
     MOVLW 0x0F
-    GOTO SaveKeyIndex
+    goto SaveKeyIndex
 
 Test_Hash:
     BTFSS keyHigh,6  ; Test if # is pressed
-    GOTO Test_0
+    goto Test_0
     MOVLW HASH_KEY
-    GOTO SaveKeyIndex
+    goto SaveKeyIndex
 
 Test_0:
     BTFSS keyHigh,5  ; Test if 0 is pressed
-    GOTO Test_Star
+    goto Test_Star
     MOVLW 0x00
-    GOTO SaveKeyIndex
+    goto SaveKeyIndex
 
 Test_Star:
     BTFSS keyHigh,4  ; Test if * is pressed
-    GOTO Test_C
+    goto Test_C
     MOVLW STAR_KEY
-    GOTO SaveKeyIndex
+    goto SaveKeyIndex
 
 Test_C:
     BTFSS keyHigh,3  ; Test if C is pressed
-    GOTO Test_9
+    goto Test_9
     MOVLW 0x0E
-    GOTO SaveKeyIndex
+    goto SaveKeyIndex
 
 Test_9:
     BTFSS keyHigh,2  ; Test if 9 is pressed
-    GOTO Test_8
+    goto Test_8
     MOVLW 0x09
-    GOTO SaveKeyIndex
+    goto SaveKeyIndex
 
 Test_8:
     BTFSS keyHigh,1  ; Test if 8 is pressed
-    GOTO Test_7
+    goto Test_7
     MOVLW 0x08
-    GOTO SaveKeyIndex
+    goto SaveKeyIndex
 
 Test_7:
     BTFSS keyHigh,0  ; Test if 7 is pressed
-    GOTO Test_B
+    goto Test_B
     MOVLW 0x07
-    GOTO SaveKeyIndex
+    goto SaveKeyIndex
 
 Test_B:
     BTFSS keyLow,7   ; Test if B is pressed
-    GOTO Test_6
+    goto Test_6
     MOVLW 0x0D
-    GOTO SaveKeyIndex
+    goto SaveKeyIndex
 
 Test_6:
     BTFSS keyLow,6   ; Test if 6 is pressed
-    GOTO Test_5
+    goto Test_5
     MOVLW 0x06
-    GOTO SaveKeyIndex
+    goto SaveKeyIndex
 
 Test_5:
     BTFSS keyLow,5   ; Test if 5 is pressed
-    GOTO Test_4
+    goto Test_4
     MOVLW 0x05
-    GOTO SaveKeyIndex
+    goto SaveKeyIndex
 
 Test_4:
     BTFSS keyLow,4   ; Test if 4 is pressed
-    GOTO Test_A
+    goto Test_A
     MOVLW 0x04
-    GOTO SaveKeyIndex
+    goto SaveKeyIndex
 
 Test_A:
     BTFSS keyLow,3   ; Test if A is pressed
-    GOTO Test_3
+    goto Test_3
     MOVLW 0x0C
-    GOTO SaveKeyIndex
+    goto SaveKeyIndex
 
 Test_3:
     BTFSS keyLow,2   ; Test if 3 is pressed
-    GOTO Test_2
+    goto Test_2
     MOVLW 0x03
-    GOTO SaveKeyIndex
+    goto SaveKeyIndex
 
 Test_2:
     BTFSS keyLow,1   ; Test if 2 is pressed
-    GOTO Test_1
+    goto Test_1
     MOVLW 0x02
-    GOTO SaveKeyIndex
+    goto SaveKeyIndex
 
 Test_1:
     BTFSS keyLow,0   ; Test if 1 is pressed
-    GOTO NoKey
+    goto NoKey
     MOVLW 0x01
-    GOTO SaveKeyIndex
+    goto SaveKeyIndex
 
 NoKey:
     MOVLW NO_KEY     ; No key active
@@ -379,11 +378,11 @@ HandleKey:
     MOVLW STAR_KEY
     XORWF key_code,W
     BTFSC STATUS,2
-    GOTO CancelPIN
+    goto CancelPIN
     MOVLW HASH_KEY
     XORWF key_code,W
     BTFSC STATUS,2
-    GOTO SubmitPIN
+    goto SubmitPIN
  
     ; A-D do not change PIN entry
     MOVLW 0x0A
@@ -399,7 +398,7 @@ HandleKey:
     MOVLW PIN_LENGTH
     XORWF digit_count,W
     BTFSC STATUS,2
-    GOTO TooManyDigits
+    goto TooManyDigits
  
     ; Store the entered digit: FSR = pin_digit1 + digit_count
     MOVF digit_count,W
@@ -430,11 +429,11 @@ CancelPIN:
 SubmitPIN:
     ; An invalid length or fifth digit must never unlock
     BTFSC entry_error,0
-    GOTO RejectPIN
+    goto RejectPIN
     MOVLW PIN_LENGTH
     XORWF digit_count,W
     BTFSS STATUS,2
-    GOTO RejectPIN
+    goto RejectPIN
     CALL ComparePIN
     CALL ClearEntry
     RETURN
@@ -473,12 +472,12 @@ CompareNextDigit:
     MOVF INDF,W          ; Entered digit
     XORWF ee_data,W      ; Compare with stored EEPROM digit
     BTFSS STATUS,2
-    GOTO WrongPIN
+    goto WrongPIN
     INCF pin_index,F
     MOVLW PIN_LENGTH
     XORWF pin_index,W
     BTFSS STATUS,2
-    GOTO CompareNextDigit
+    goto CompareNextDigit
  
     ; All four digits matched
     MOVLW 0x55           ; 'U' = unlocked
@@ -504,7 +503,7 @@ BeepLoop:
     CALL Delay10ms
     BANKSEL beep_count
     DECFSZ beep_count,F
-    GOTO BeepLoop
+    goto BeepLoop
     BCF PORTA,1          ; Buzzer OFF
     RETURN
  
@@ -518,13 +517,13 @@ SolenoidPulse:
  
 SolenoidWait:
     BTFSS INTCON,2
-    GOTO SolenoidWait
+    goto SolenoidWait
     BCF INTCON,2
     INCF pulse_count,F
     MOVLW TIMEOUT_OVERFLOWS
     XORWF pulse_count,W
     BTFSS STATUS,2
-    GOTO SolenoidWait
+    goto SolenoidWait
     BCF PORTA,0          ; Lock output LOW
     RETURN
 
@@ -598,7 +597,7 @@ EEPROMWrite:
 
 WaitGIEOff:
     BTFSC INTCON,7
-    GOTO WaitGIEOff
+    goto WaitGIEOff
  
     ; Required uninterrupted EEPROM unlock
     MOVLW 0x55
@@ -623,13 +622,13 @@ EEPROMVerifyWrite:
     ; MOVLW 0xFF           ; Testing Error
     XORWF ee_data,W
     BTFSC STATUS,2
-    GOTO VerifySuccess
+    goto VerifySuccess
  
     ; Verification failed
     BANKSEL ee_status
     BCF ee_status,EEPROM_WRITE
     BSF ee_status,EEPROM_ERROR
-    GOTO VerifyFinished
+    goto VerifyFinished
  
 VerifySuccess:
     ; Verification passed, clear all status flags
@@ -668,11 +667,11 @@ Delay5ms:
 Delay5msLoop:
     CALL    Delay50usLoop
     DECFSZ  Count5ms,F
-    GOTO    Delay5msLoop
+    goto    Delay5msLoop
     MOVLW   0x04
     MOVWF   Count5ms
     DECFSZ  Count5ms,F
-    GOTO    $-1
+    goto    $-1
     RETURN
  
 Delay50usLoop:
@@ -680,9 +679,11 @@ Delay50usLoop:
     MOVLW 0x0F             ; 1 Tcy move W=15 to count
     MOVWF Count50us        ; 1 Tcy make count equal 15
     DECFSZ Count50us,F     ; 1 Tcy if not zero, 2 Tcy if zero
-    GOTO $-1               ; 2 Tcy delay runs 15 times before skipping
+    goto $-1               ; 2 Tcy delay runs 15 times before skipping
     RETURN
- 
+
+    
+;This code will be deleted in final iteration
 InitializePIN:
     CLRF EEPROMAddress
     MOVLW 0x01
